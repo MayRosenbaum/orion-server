@@ -786,7 +786,7 @@ func TestAsyncDataTx(t *testing.T) {
 			return true
 		}
 
-		require.Eventually(t, allIn, 30*time.Second, 100*time.Millisecond)
+		require.Eventually(t, allIn, 100*time.Second, 100*time.Millisecond)
 	})
 
 	t.Run("multiple blind writes to the same key on the same block", func(t *testing.T) {

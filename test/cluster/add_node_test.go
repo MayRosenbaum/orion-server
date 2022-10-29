@@ -103,7 +103,7 @@ func TestBasicAddServer(t *testing.T) {
 		NumberOfServers:     3,
 		TestDirAbsolutePath: dir,
 		BDBBinaryPath:       "../../bin/bdb",
-		CmdTimeout:          10 * time.Second,
+		CmdTimeout:          30 * time.Second,
 		BaseNodePort:        nPort,
 		BasePeerPort:        pPort,
 		CheckRedirectFunc: func(req *http.Request, via []*http.Request) error {

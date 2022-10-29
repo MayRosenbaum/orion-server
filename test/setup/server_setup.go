@@ -1414,7 +1414,7 @@ func (s *Server) start(timeout time.Duration) error {
 
 	g := gomega.NewWithT(&testFailure{})
 
-	if !g.Eventually(s.outBuffer, 10).Should(gbytes.Say("Starting to serve requests on: " + s.address + ":")) {
+	if !g.Eventually(s.outBuffer, 100).Should(gbytes.Say("Starting to serve requests on: " + s.address + ":")) {
 		return errors.New("failed to start the server: " + s.serverID)
 	}
 
