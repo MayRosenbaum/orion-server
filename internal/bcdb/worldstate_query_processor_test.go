@@ -1342,18 +1342,6 @@ func TestGetUser(t *testing.T) {
 			},
 		}
 
-		//targetUserMetadataReadWritePerm := &types.Metadata{
-		//	Version: &types.Version{
-		//		BlockNum: 1,
-		//		TxNum:    1,
-		//	},
-		//	AccessControl: &types.AccessControl{
-		//		ReadWriteUsers: map[string]bool{
-		//			"querierUser": true,
-		//		},
-		//	},
-		//}
-
 		targetUserMetadataNoACL := &types.Metadata{
 			Version: &types.Version{
 				BlockNum: 1,
