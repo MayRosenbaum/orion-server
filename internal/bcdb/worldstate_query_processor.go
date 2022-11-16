@@ -215,6 +215,11 @@ func (q *worldstateQueryProcessor) getUser(querierUserID, targetUserID string) (
 	if err != nil {
 		if _, ok := err.(*identity.NotFoundErr); !ok {
 			return nil, err
+		} else {
+			return &types.GetUserResponse{
+				User:     nil,
+				Metadata: nil,
+			}, nil
 		}
 	}
 

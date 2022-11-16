@@ -1309,13 +1309,22 @@ func TestGetUser(t *testing.T) {
 		querierUserSerialized, err := proto.Marshal(querierUser)
 		require.NoError(t, err)
 
+		querierAdminUser := &types.User{
+			Id: "querierUser",
+			Privilege: &types.Privilege{
+				Admin: true,
+			},
+		}
+		querierAdminUserSerialized, err := proto.Marshal(querierAdminUser)
+		require.NoError(t, err)
+
 		targetUser := &types.User{
 			Id: "targetUser",
 			Privilege: &types.Privilege{
 				DbPermission: map[string]types.Privilege_Access{
 					"db1": types.Privilege_ReadWrite,
 				},
-				Admin: true,
+				//	Admin: true,
 			},
 		}
 		targetUserSerialized, err := proto.Marshal(targetUser)
@@ -1333,17 +1342,17 @@ func TestGetUser(t *testing.T) {
 			},
 		}
 
-		targetUserMetadataReadWritePerm := &types.Metadata{
-			Version: &types.Version{
-				BlockNum: 1,
-				TxNum:    1,
-			},
-			AccessControl: &types.AccessControl{
-				ReadUsers: map[string]bool{
-					"querierUser": true,
-				},
-			},
-		}
+		//targetUserMetadataReadWritePerm := &types.Metadata{
+		//	Version: &types.Version{
+		//		BlockNum: 1,
+		//		TxNum:    1,
+		//	},
+		//	AccessControl: &types.AccessControl{
+		//		ReadWriteUsers: map[string]bool{
+		//			"querierUser": true,
+		//		},
+		//	},
+		//}
 
 		targetUserMetadataNoACL := &types.Metadata{
 			Version: &types.Version{
@@ -1388,19 +1397,20 @@ func TestGetUser(t *testing.T) {
 				},
 			},
 			{
-				name: "querierUser has read-write permission on targetUser",
+				name: "Admin always has read permission on targetUser",
 				setup: func(db worldstate.DB) {
 					addUser := map[string]*worldstate.DBUpdates{
 						worldstate.UsersDBName: {
 							Writes: []*worldstate.KVWithMetadata{
 								{
 									Key:   string(identity.UserNamespace) + "querierUser",
-									Value: querierUserSerialized,
+									Value: querierAdminUserSerialized,
 								},
 								{
-									Key:      string(identity.UserNamespace) + "targetUser",
-									Value:    targetUserSerialized,
-									Metadata: targetUserMetadataReadWritePerm,
+									Key:   string(identity.UserNamespace) + "targetUser",
+									Value: targetUserSerialized,
+									//Metadata: targetUserMetadataReadPerm,
+									Metadata: targetUserMetadataNoACL,
 								},
 							},
 						},
@@ -1411,19 +1421,49 @@ func TestGetUser(t *testing.T) {
 				querierUserID: "querierUser",
 				targetUserID:  "targetUser",
 				expectedRespose: &types.GetUserResponse{
-					User:     targetUser,
-					Metadata: targetUserMetadataReadWritePerm,
+					User: targetUser,
+					//Metadata: targetUserMetadataReadPerm,
+					Metadata: targetUserMetadataNoACL,
 				},
 			},
+			//{
+			//name: "querierUser has read-write permission on targetUser",
+			//setup: func(db worldstate.DB) {
+			//	addUser := map[string]*worldstate.DBUpdates{
+			//		worldstate.UsersDBName: {
+			//			Writes: []*worldstate.KVWithMetadata{
+			//				{
+			//					Key:   string(identity.UserNamespace) + "querierUser",
+			//					Value: querierUserSerialized,
+			//				},
+			//				{
+			//					Key:      string(identity.UserNamespace) + "targetUser",
+			//					Value:    targetUserSerialized,
+			//					Metadata: targetUserMetadataReadWritePerm,
+			//				},
+			//			},
+			//		},
+			//	}
+			//
+			//		require.NoError(t, db.Commit(addUser, 1))
+			//	},
+			//	querierUserID: "querierUser",
+			//	targetUserID:  "targetUser",
+			//	expectedRespose: &types.GetUserResponse{
+			//		User:     targetUser,
+			//		Metadata: targetUserMetadataReadWritePerm,
+			//	},
+			//},
 			{
-				name: "target user has no ACL",
+				name: "target user has no ACL and querier is an admin",
 				setup: func(db worldstate.DB) {
 					addUser := map[string]*worldstate.DBUpdates{
 						worldstate.UsersDBName: {
 							Writes: []*worldstate.KVWithMetadata{
 								{
-									Key:   string(identity.UserNamespace) + "querierUser",
-									Value: querierUserSerialized,
+									Key: string(identity.UserNamespace) + "querierUser",
+									//Value: querierUserSerialized,
+									Value: querierAdminUserSerialized,
 								},
 								{
 									Key:      string(identity.UserNamespace) + "targetUser",
@@ -1496,7 +1536,7 @@ func TestGetUser(t *testing.T) {
 				DbPermission: map[string]types.Privilege_Access{
 					"db1": types.Privilege_ReadWrite,
 				},
-				Admin: true,
+				//Admin: true,
 			},
 		}
 		targetUserSerialized, err := proto.Marshal(targetUser)
@@ -1511,6 +1551,13 @@ func TestGetUser(t *testing.T) {
 				ReadUsers: map[string]bool{
 					"user1": true,
 				},
+			},
+		}
+
+		targetUserMetadataNoACL := &types.Metadata{
+			Version: &types.Version{
+				BlockNum: 1,
+				TxNum:    1,
 			},
 		}
 
@@ -1535,6 +1582,31 @@ func TestGetUser(t *testing.T) {
 									Key:      string(identity.UserNamespace) + "targetUser",
 									Value:    targetUserSerialized,
 									Metadata: targetUserMetadataNoReadPerm,
+								},
+							},
+						},
+					}
+
+					require.NoError(t, db.Commit(addUser, 1))
+				},
+				querierUserID: "querierUser",
+				targetUserID:  "targetUser",
+				expectedError: "the user [querierUser] has no permission to read info of user [targetUser]",
+			},
+			{
+				name: "target user has no ACL",
+				setup: func(db worldstate.DB) {
+					addUser := map[string]*worldstate.DBUpdates{
+						worldstate.UsersDBName: {
+							Writes: []*worldstate.KVWithMetadata{
+								{
+									Key:   string(identity.UserNamespace) + "querierUser",
+									Value: querierUserSerialized,
+								},
+								{
+									Key:      string(identity.UserNamespace) + "targetUser",
+									Value:    targetUserSerialized,
+									Metadata: targetUserMetadataNoACL,
 								},
 							},
 						},
