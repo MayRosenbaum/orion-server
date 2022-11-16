@@ -1302,53 +1302,64 @@ func TestExecuteJSONQuery(t *testing.T) {
 }
 
 func TestGetUser(t *testing.T) {
+	querierUser := &types.User{
+		Id: "querierUser",
+	}
+	querierUserSerialized, err := proto.Marshal(querierUser)
+	require.NoError(t, err)
+
+	querierAdminUser := &types.User{
+		Id: "querierUser",
+		Privilege: &types.Privilege{
+			Admin: true,
+		},
+	}
+	querierAdminUserSerialized, err := proto.Marshal(querierAdminUser)
+	require.NoError(t, err)
+
+	targetUser := &types.User{
+		Id: "targetUser",
+		Privilege: &types.Privilege{
+			DbPermission: map[string]types.Privilege_Access{
+				"db1": types.Privilege_ReadWrite,
+			},
+		},
+	}
+	targetUserSerialized, err := proto.Marshal(targetUser)
+	require.NoError(t, err)
+
+	targetUserMetadataReadPerm := &types.Metadata{
+		Version: &types.Version{
+			BlockNum: 1,
+			TxNum:    1,
+		},
+		AccessControl: &types.AccessControl{
+			ReadUsers: map[string]bool{
+				"querierUser": true,
+			},
+		},
+	}
+
+	targetUserMetadataNoReadPerm := &types.Metadata{
+		Version: &types.Version{
+			BlockNum: 1,
+			TxNum:    1,
+		},
+		AccessControl: &types.AccessControl{
+			ReadUsers: map[string]bool{
+				"user1": true,
+			},
+		},
+	}
+
+	targetUserMetadataNoACL := &types.Metadata{
+		Version: &types.Version{
+			BlockNum: 1,
+			TxNum:    1,
+		},
+	}
+
 	t.Run("query existing user", func(t *testing.T) {
-		querierUser := &types.User{
-			Id: "querierUser",
-		}
-		querierUserSerialized, err := proto.Marshal(querierUser)
-		require.NoError(t, err)
-
-		querierAdminUser := &types.User{
-			Id: "querierUser",
-			Privilege: &types.Privilege{
-				Admin: true,
-			},
-		}
-		querierAdminUserSerialized, err := proto.Marshal(querierAdminUser)
-		require.NoError(t, err)
-
-		targetUser := &types.User{
-			Id: "targetUser",
-			Privilege: &types.Privilege{
-				DbPermission: map[string]types.Privilege_Access{
-					"db1": types.Privilege_ReadWrite,
-				},
-				//	Admin: true,
-			},
-		}
-		targetUserSerialized, err := proto.Marshal(targetUser)
-		require.NoError(t, err)
-
-		targetUserMetadataReadPerm := &types.Metadata{
-			Version: &types.Version{
-				BlockNum: 1,
-				TxNum:    1,
-			},
-			AccessControl: &types.AccessControl{
-				ReadUsers: map[string]bool{
-					"querierUser": true,
-				},
-			},
-		}
-
-		targetUserMetadataNoACL := &types.Metadata{
-			Version: &types.Version{
-				BlockNum: 1,
-				TxNum:    1,
-			},
-		}
-
 		tests := []struct {
 			name            string
 			setup           func(db worldstate.DB)
@@ -1385,7 +1396,7 @@ func TestGetUser(t *testing.T) {
 				},
 			},
 			{
-				name: "Admin always has read permission on targetUser",
+				name: "admin always has read permission on targetUser",
 				setup: func(db worldstate.DB) {
 					addUser := map[string]*worldstate.DBUpdates{
 						worldstate.UsersDBName: {
@@ -1395,10 +1406,9 @@ func TestGetUser(t *testing.T) {
 									Value: querierAdminUserSerialized,
 								},
 								{
-									Key:   string(identity.UserNamespace) + "targetUser",
-									Value: targetUserSerialized,
-									//Metadata: targetUserMetadataReadPerm,
-									Metadata: targetUserMetadataNoACL,
+									Key:      string(identity.UserNamespace) + "targetUser",
+									Value:    targetUserSerialized,
+									Metadata: targetUserMetadataReadPerm,
 								},
 							},
 						},
@@ -1409,39 +1419,10 @@ func TestGetUser(t *testing.T) {
 				querierUserID: "querierUser",
 				targetUserID:  "targetUser",
 				expectedRespose: &types.GetUserResponse{
-					User: targetUser,
-					//Metadata: targetUserMetadataReadPerm,
-					Metadata: targetUserMetadataNoACL,
+					User:     targetUser,
+					Metadata: targetUserMetadataReadPerm,
 				},
 			},
-			//{
-			//name: "querierUser has read-write permission on targetUser",
-			//setup: func(db worldstate.DB) {
-			//	addUser := map[string]*worldstate.DBUpdates{
-			//		worldstate.UsersDBName: {
-			//			Writes: []*worldstate.KVWithMetadata{
-			//				{
-			//					Key:   string(identity.UserNamespace) + "querierUser",
-			//					Value: querierUserSerialized,
-			//				},
-			//				{
-			//					Key:      string(identity.UserNamespace) + "targetUser",
-			//					Value:    targetUserSerialized,
-			//					Metadata: targetUserMetadataReadWritePerm,
-			//				},
-			//			},
-			//		},
-			//	}
-			//
-			//		require.NoError(t, db.Commit(addUser, 1))
-			//	},
-			//	querierUserID: "querierUser",
-			//	targetUserID:  "targetUser",
-			//	expectedRespose: &types.GetUserResponse{
-			//		User:     targetUser,
-			//		Metadata: targetUserMetadataReadWritePerm,
-			//	},
-			//},
 			{
 				name: "target user has no ACL and querier is an admin",
 				setup: func(db worldstate.DB) {
@@ -1449,8 +1430,7 @@ func TestGetUser(t *testing.T) {
 						worldstate.UsersDBName: {
 							Writes: []*worldstate.KVWithMetadata{
 								{
-									Key: string(identity.UserNamespace) + "querierUser",
-									//Value: querierUserSerialized,
+									Key:   string(identity.UserNamespace) + "querierUser",
 									Value: querierAdminUserSerialized,
 								},
 								{
@@ -1512,43 +1492,6 @@ func TestGetUser(t *testing.T) {
 	})
 
 	t.Run("error expected", func(t *testing.T) {
-		querierUser := &types.User{
-			Id: "querierUser",
-		}
-		querierUserSerialized, err := proto.Marshal(querierUser)
-		require.NoError(t, err)
-
-		targetUser := &types.User{
-			Id: "targetUser",
-			Privilege: &types.Privilege{
-				DbPermission: map[string]types.Privilege_Access{
-					"db1": types.Privilege_ReadWrite,
-				},
-				//Admin: true,
-			},
-		}
-		targetUserSerialized, err := proto.Marshal(targetUser)
-		require.NoError(t, err)
-
-		targetUserMetadataNoReadPerm := &types.Metadata{
-			Version: &types.Version{
-				BlockNum: 1,
-				TxNum:    1,
-			},
-			AccessControl: &types.AccessControl{
-				ReadUsers: map[string]bool{
-					"user1": true,
-				},
-			},
-		}
-
-		targetUserMetadataNoACL := &types.Metadata{
-			Version: &types.Version{
-				BlockNum: 1,
-				TxNum:    1,
-			},
-		}
-
 		tests := []struct {
 			name          string
 			setup         func(db worldstate.DB)
@@ -1582,7 +1525,7 @@ func TestGetUser(t *testing.T) {
 				expectedError: "the user [querierUser] has no permission to read info of user [targetUser]",
 			},
 			{
-				name: "target user has no ACL",
+				name: "target user has no ACL and querier is not an admin",
 				setup: func(db worldstate.DB) {
 					addUser := map[string]*worldstate.DBUpdates{
 						worldstate.UsersDBName: {

@@ -223,14 +223,13 @@ func (q *worldstateQueryProcessor) getUser(querierUserID, targetUserID string) (
 		}
 	}
 
-	acl := metadata.GetAccessControl()
-
 	isAdmin, err := q.identityQuerier.HasAdministrationPrivilege(querierUserID)
 	if err != nil {
 		return nil, err
 	}
 
 	if !isAdmin {
+		acl := metadata.GetAccessControl()
 		if (acl != nil && !acl.ReadUsers[querierUserID]) || acl == nil {
 			return nil, &errors.PermissionErr{
 				ErrMsg: "the user [" + querierUserID + "] has no permission to read info of user [" + targetUserID + "]",
